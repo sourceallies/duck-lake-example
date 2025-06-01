@@ -6,3 +6,6 @@ jaffle_shop:
       type: duckdb
       path: 'jaffle_shop.duckdb'
       threads: 24
+      extensions:
+        - httpfs
+        - parquet
