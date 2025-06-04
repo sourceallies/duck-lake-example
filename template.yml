@@ -1,0 +1,57 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: DuckLake stack managed by DBT (Paul)
+
+Parameters:
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: List of subnet IDs for the Database
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID for the Database
+
+Resources:
+  LakeBucket:
+    Type: AWS::S3::Bucket
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for public RDS
+      SubnetIds: !Ref SubnetIds
+
+  PublicDBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable public access to PostgreSQL
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          CidrIp: 0.0.0.0/0
+
+  PostgresDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: "lake_catalog"
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      EngineVersion: "17"
+      MasterUsername: "postgres"
+      ManageMasterUserPassword: true
+      VPCSecurityGroups:
+        - !GetAtt PublicDBSecurityGroup.GroupId
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: true
+      BackupRetentionPeriod: 0
+      DeletionProtection: false
+      MultiAZ: false
+
+Outputs:
+  DBEndpoint:
+    Description: The connection endpoint for the PostgreSQL instance
+    Value: !GetAtt PostgresDB.Endpoint.Address
+  DBPort:
+    Description: The port of the PostgreSQL instance
+    Value: !GetAtt PostgresDB.Endpoint.Port

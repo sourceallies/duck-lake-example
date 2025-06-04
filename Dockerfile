@@ -1,12 +1,8 @@
-FROM mcr.microsoft.com/vscode/devcontainers/python:3.9
+FROM ghcr.io/dbt-labs/dbt-core:1.9.latest
 
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
+WORKDIR /app
 
-RUN if [ "$USER_GID" != "1000" ] || [ "$USER_UID" != "1000" ]; then groupmod --gid $USER_GID vscode && usermod --uid $USER_UID --gid $USER_GID vscode; fi
-
-RUN pwd
-RUN ls
-COPY requirements.txt /tmp/
+COPY requirements.txt ./
 RUN pip3 install --upgrade pip
-RUN pip3 install --requirement /tmp/requirements.txt
+RUN pip3 install --requirement requirements.txt
+

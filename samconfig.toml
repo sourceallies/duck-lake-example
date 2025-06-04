@@ -1,0 +1,13 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "ducklake-prowe"
+resolve_s3 = true
+s3_prefix = "ducklake-prowe"
+region = "us-east-1"
+capabilities = "CAPABILITY_IAM"
+image_repositories = []
+parameter_overrides = [
+    "SubnetIds=subnet-d30953b4,subnet-3b103115",
+    "VpcId=vpc-27ccbb5d"
+]
