@@ -40,7 +40,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: "${{ steps.meta.outputs.tags }} ${{ github.sha }}"
           labels: ${{ steps.meta.outputs.labels }}
 
   deploy-cloudformation:
@@ -65,4 +65,9 @@ jobs:
           role-session-name: Deploy
 
       - name: Deploy stack
-        run: sam deploy
+        run: >
+          sam deploy --parameter-overrides
+            SubnetIds=subnet-d30953b4,subnet-3b103115
+            VpcId=vpc-27ccbb5d
+            ImageTag=${{ github.sha }}
+

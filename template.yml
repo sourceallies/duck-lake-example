@@ -1,5 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: DuckLake stack managed by DBT (Paul)
+Transform: AWS::Serverless-2016-10-31
 
 Parameters:
   SubnetIds:
@@ -8,6 +9,9 @@ Parameters:
   VpcId:
     Type: AWS::EC2::VPC::Id
     Description: VPC ID for the Database
+  ImageTag:
+    Type: String
+    Description: The tag of the Docker image to use for the DBT container
 
 Resources:
   LakeBucket:
@@ -53,6 +57,114 @@ Resources:
     Properties: 
       CapacityProviders: 
         - FARGATE
+
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 30
+
+  ECSTaskExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: [ecs-tasks.amazonaws.com]
+          Action: ['sts:AssumeRole']
+          Condition:
+            ArnLike:
+              aws:SourceArn: !Sub arn:aws:ecs:${AWS::Region}:${AWS::AccountId}:*
+            StringEquals:
+              aws:SourceAccount: !Ref AWS::AccountId
+      Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: LakeBucketFullAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:DeleteObject
+                  - s3:ListBucket
+                  - s3:GetBucketLocation
+                  - s3:PutObjectAcl
+                  - s3:GetObjectAcl
+                Resource:
+                  - !Sub "${LakeBucket.Arn}"
+                  - !Sub "${LakeBucket.Arn}/*"
+              - Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                Resource: !GetAtt PostgresDB.MasterUserSecret.SecretArn
+                
+
+  DataTransformTaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: DataTransform
+      Cpu: 1024
+      Memory: 8192
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      ExecutionRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      TaskRoleArn: !GetAtt ECSTaskExecutionRole.Arn
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+      ContainerDefinitions:
+        - Name: dbt
+          Cpu: 1024
+          Memory: 8192
+          Image: !Sub "ghcr.io/sourceallies/duck-lake-example:${ImageTag}"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-group: !Ref LogGroup
+              awslogs-region: !Ref AWS::Region
+              awslogs-stream-prefix: dbt
+          Command: [run]
+          Environment:
+            - Name: PGHOST
+              Value: !GetAtt PostgresDB.Endpoint.Address
+            - Name: PGPORT
+              Value: !GetAtt PostgresDB.Endpoint.Port
+            - Name: DATA_S3_PATH
+              Value: !Sub "s3://${LakeBucket}/data/"
+          Secrets:
+            - Name: PGUSER
+              ValueFrom: !Sub "${PostgresDB.MasterUserSecret.SecretArn}:username::"
+            - Name: PGPASSWORD
+              ValueFrom: !Sub "${PostgresDB.MasterUserSecret.SecretArn}:password::"
+
+  DataTransformStateMachine:
+    Type: AWS::Serverless::StateMachine
+    Properties:
+      Definition:
+        StartAt: RunDataTransformTask
+        States:
+          RunDataTransformTask:
+            Type: Task
+            Resource: arn:aws:states:::ecs:runTask.sync
+            Parameters:
+              Cluster: !Ref Cluster
+              TaskDefinition: !Ref DataTransformTaskDefinition
+              LaunchType: FARGATE
+              NetworkConfiguration:
+                AwsvpcConfiguration:
+                  Subnets:
+                    - !Select [ 0, !Ref SubnetIds ]
+                    - !Select [ 1, !Ref SubnetIds ]
+                  AssignPublicIp: ENABLED
+                  SecurityGroups:
+                    - !GetAtt PublicDBSecurityGroup.GroupId
+            End: true
+      Policies:
+        - AmazonECS_FullAccess
 
 Outputs:
   DBEndpoint:
