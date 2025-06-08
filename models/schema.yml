@@ -3,7 +3,6 @@ version: 2
 models:
   - name: checkbook
     description: State of Iowa checkbook
-
     columns:
       - name: rec_no
       - name: fiscal_year

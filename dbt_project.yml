@@ -19,16 +19,22 @@ clean-targets:
 
 require-dbt-version: [">=1.0.0", "<2.0.0"]
 
-seeds: 
-  +docs:
-    node_color: '#cd7f32'
-
 models:
   jaffle_shop:
     +materialized: table
     staging:
       +materialized: view
+      +database: memory
       +docs:
         node_color: 'silver'
     +docs:
       node_color: 'gold'
+
+on-run-start:
+#   - |
+#     CREATE OR REPLACE SECRET secret (
+#       TYPE s3,
+#       PROVIDER credential_chain
+#     );
+  - ATTACH 'ducklake:postgres:host={{ env_var('PGHOST') }}' AS ducklake (DATA_PATH '{{ env_var('DATA_S3_PATH' )}}');
+  - USE ducklake;

@@ -4,8 +4,14 @@ jaffle_shop:
   outputs:
     dev:
       type: duckdb
-      path: 'jaffle_shop.duckdb'
-      threads: 24
       extensions:
+        - aws
+        - https
         - httpfs
+        - ducklake
         - parquet
+        - postgres
+      secrets:
+        - type: s3
+          provider: credential_chain
+          region: "us-east-1"
