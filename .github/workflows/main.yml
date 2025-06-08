@@ -68,8 +68,8 @@ jobs:
 
       - name: Deploy stack
         run: >
-          sam deploy --parameter-overrides
-            SubnetIds=subnet-d30953b4,subnet-3b103115
-            VpcId=vpc-27ccbb5d
-            ImageTag=${{ github.sha }}
+          sam deploy --parameter-overrides \
+            SubnetIds=subnet-d30953b4,subnet-3b103115 \
+            VpcId=vpc-27ccbb5d \
+            ImageTag=sha-${{ github.sha }}
 
