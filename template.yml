@@ -48,6 +48,12 @@ Resources:
       DeletionProtection: false
       MultiAZ: false
 
+  Cluster:
+    Type: AWS::ECS::Cluster
+    Properties: 
+      CapacityProviders: 
+        - FARGATE
+
 Outputs:
   DBEndpoint:
     Description: The connection endpoint for the PostgreSQL instance

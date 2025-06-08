@@ -11,3 +11,5 @@ venv/
 env/
 **/*.duckdb
 **/*.duckdb.wal
+vars.sh
+docker-compose.yml
